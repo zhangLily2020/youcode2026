@@ -1,11 +1,48 @@
+# Tracer
 
-  # Untitled
+**Tracer** is a transparency-first financial platform designed for BC Non-Profit Organizations (NPOs). It strengthens the bond between organizations and their supporters by providing real-time, receipt-level proof of impact.
 
-  This is a code bundle for Untitled. The original project is available at https://www.figma.com/design/pLdUKdaWcFqKDWqdSKQP5l/Untitled.
+## The Problem
 
-  ## Running the code
+Many donors stop giving because they don't know exactly where their money went. Meanwhile, small NPOs lack the administrative capacity to provide detailed impact reports for every micro-donation.
 
-  Run `npm i` to install the dependencies.
+---
 
-  Run `npm run dev` to start the development server.
-  
+## Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (v18 or higher recommended)
+- npm
+
+### Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone <your-repo-url>
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+### Running the App
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+The app will be available at `http://localhost:5173/`.
+
+---
+
+## Built With
+
+- **Frontend:** React, Vite, Tailwind CSS
+- **Design:** Tracer Design System
+- **Icons:** Lucide React / Phosphor Icons
