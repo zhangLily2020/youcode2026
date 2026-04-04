@@ -15,16 +15,42 @@ export function LoginPage() {
 
   const defaultTab = searchParams.get("tab") === "organization" ? "organization" : "donor";
 
-  const handleDonorLogin = (e: React.FormEvent) => {
+  const handleDonorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - navigate to donor dashboard
-    navigate("/donor");
+
+    try {
+      // 1. Call the backend
+      const response = await fetch("http://localhost:5000/api/hello");
+      const data = await response.json();
+      
+      // 2. Alert the response
+      alert(data.message);
+      
+      // 3. Continue with mock login navigation
+      navigate("/donor");
+    } catch (error) {
+      console.error("Failed to fetch from backend:", error);
+      alert("Could not connect to backend!");
+    }
   };
 
-  const handleOrgLogin = (e: React.FormEvent) => {
+  const handleOrgLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Mock login - navigate to org dashboard
-    navigate("/organization");
+
+    try {
+      // 1. Call the backend
+      const response = await fetch("http://localhost:5000/api/hello");
+      const data = await response.json();
+      
+      // 2. Alert the response
+      alert(data.message);
+      
+      // 3. Continue with mock login navigation
+      navigate("/organization");
+    } catch (error) {
+      console.error("Failed to fetch from backend:", error);
+      alert("Could not connect to backend!");
+    }
   };
 
   return (
