@@ -1,15 +1,19 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
-import { BarChart3, ArrowLeft } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router";
+import { ArrowLeft, Heart, Sparkles } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { motion } from "motion/react";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  const defaultTab = searchParams.get("tab") === "organization" ? "organization" : "donor";
 
   const handleDonorLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,19 +28,50 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 flex flex-col relative overflow-hidden">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-20">
+        {[...Array(6)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute"
+            initial={{ y: -100, x: Math.random() * window.innerWidth }}
+            animate={{
+              y: [null, window.innerHeight + 100],
+              rotate: [0, 360],
+            }}
+            transition={{
+              duration: 20 + Math.random() * 10,
+              repeat: Infinity,
+              delay: i * 3,
+              ease: "linear",
+            }}
+          >
+            {i % 2 === 0 ? (
+              <Heart className="w-12 h-12 text-pink-400" fill="currentColor" />
+            ) : (
+              <Sparkles className="w-10 h-10 text-rose-400" />
+            )}
+          </motion.div>
+        ))}
+      </div>
       {/* Navigation */}
-      <nav className="border-b border-pink-100 bg-white/80 backdrop-blur-sm">
+      <nav className="border-b border-pink-100 bg-white/80 backdrop-blur-sm relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <button
+          <motion.button
             onClick={() => navigate("/")}
             className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            whileHover={{ scale: 1.05 }}
           >
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200">
-              <BarChart3 className="w-6 h-6 text-white" />
-            </div>
+            <motion.div
+              className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200"
+              animate={{ rotate: [0, 5, -5, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              <Heart className="w-6 h-6 text-white" fill="currentColor" />
+            </motion.div>
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
-          </button>
+          </motion.button>
           <Button
             onClick={() => navigate("/")}
             variant="ghost"
@@ -49,19 +84,40 @@ export function LoginPage() {
       </nav>
 
       {/* Login Form */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+        <motion.div
+          className="w-full max-w-md"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">
+            <motion.h1
+              className="text-3xl font-bold text-slate-900 mb-2"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
               Welcome Back
-            </h1>
-            <p className="text-slate-600">
+            </motion.h1>
+            <motion.p
+              className="text-slate-600"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+            >
               Sign in to access your dashboard
-            </p>
+            </motion.p>
           </div>
 
-          <div className="bg-white rounded-3xl border border-pink-100 shadow-2xl shadow-pink-200/50 p-8">
-            <Tabs defaultValue="donor" className="w-full">
+          <motion.div
+            className="bg-white rounded-3xl border border-pink-100 shadow-2xl shadow-pink-200/50 p-8"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            whileHover={{ boxShadow: "0 30px 60px rgba(251, 207, 232, 0.4)" }}
+          >
+            <Tabs defaultValue={defaultTab} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-6 bg-pink-50 p-1 rounded-xl">
                 <TabsTrigger value="donor" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-pink-600 data-[state=active]:shadow-md">Donor</TabsTrigger>
                 <TabsTrigger value="organization" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-pink-600 data-[state=active]:shadow-md">Organization</TabsTrigger>
@@ -146,8 +202,8 @@ export function LoginPage() {
                 </button>
               </p>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );

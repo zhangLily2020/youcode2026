@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { BarChart3, LogOut, DollarSign, Upload, TrendingUp, Users, Plus, X } from "lucide-react";
+import { LogOut, DollarSign, Upload, TrendingUp, Users, Plus, X, Heart, Sparkles, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
+import { motion } from "motion/react";
 
 // Mock organization data
 const organizationData = {
@@ -14,6 +15,12 @@ const organizationData = {
   totalReceived: 15750,
   totalSpent: 12500,
   totalDonors: 43,
+  donors: [
+    { id: 1, name: "John Doe", email: "john@example.com", totalDonated: 1250, lastDonation: "2026-02-10", thanked: false },
+    { id: 2, name: "Jane Smith", email: "jane@example.com", totalDonated: 2000, lastDonation: "2026-03-15", thanked: true },
+    { id: 3, name: "Bob Johnson", email: "bob@example.com", totalDonated: 750, lastDonation: "2026-03-20", thanked: false },
+    { id: 4, name: "Alice Williams", email: "alice@example.com", totalDonated: 1500, lastDonation: "2026-04-01", thanked: false },
+  ],
   expenditures: [
     {
       id: 1,
@@ -57,6 +64,7 @@ const organizationData = {
 export function OrganizationDashboard() {
   const navigate = useNavigate();
   const [expenditures, setExpenditures] = useState(organizationData.expenditures);
+  const [donors, setDonors] = useState(organizationData.donors);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [newExpenditure, setNewExpenditure] = useState({
     category: "",
@@ -67,6 +75,12 @@ export function OrganizationDashboard() {
 
   const handleLogout = () => {
     navigate("/");
+  };
+
+  const handleToggleThanked = (donorId: number) => {
+    setDonors(donors.map(donor =>
+      donor.id === donorId ? { ...donor, thanked: !donor.thanked } : donor
+    ));
   };
 
   const handleAddExpenditure = () => {
@@ -90,13 +104,39 @@ export function OrganizationDashboard() {
   const availableFunds = organizationData.totalReceived - totalSpent;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 relative overflow-hidden">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+        {[...Array(8)].map((_, i) => (
+          <motion.div
+            key={i}
+            className="absolute"
+            initial={{ y: -100, x: Math.random() * window.innerWidth }}
+            animate={{
+              y: [null, window.innerHeight + 100],
+              x: [null, Math.random() * window.innerWidth],
+            }}
+            transition={{
+              duration: 15 + Math.random() * 10,
+              repeat: Infinity,
+              delay: i * 2,
+              ease: "linear",
+            }}
+          >
+            {i % 2 === 0 ? (
+              <Heart className="w-12 h-12 text-pink-300" fill="currentColor" />
+            ) : (
+              <Sparkles className="w-10 h-10 text-rose-300" />
+            )}
+          </motion.div>
+        ))}
+      </div>
       {/* Navigation */}
-      <nav className="border-b border-pink-100 bg-white/80 backdrop-blur-sm">
+      <nav className="border-b border-pink-100 bg-white/80 backdrop-blur-sm relative z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200">
-              <BarChart3 className="w-6 h-6 text-white" />
+              <Heart className="w-6 h-6 text-white" fill="currentColor" />
             </div>
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
           </div>
@@ -114,7 +154,7 @@ export function OrganizationDashboard() {
       </nav>
 
       {/* Dashboard Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -136,7 +176,7 @@ export function OrganizationDashboard() {
               <DialogHeader>
                 <DialogTitle className="text-slate-900">Upload New Expenditure</DialogTitle>
                 <DialogDescription className="text-slate-600">
-                  Add a new expense with receipt details. This will be allocated to donors via FIFO.
+                  Add a new expense with receipt details.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -268,11 +308,11 @@ export function OrganizationDashboard() {
         </div>
 
         {/* Expenditure List */}
-        <Card className="rounded-3xl border-pink-100 shadow-xl shadow-pink-100/50 bg-white">
+        <Card className="rounded-3xl border-pink-100 shadow-xl shadow-pink-100/50 bg-white mb-8">
           <CardHeader>
             <CardTitle className="text-slate-900">Expenditure History</CardTitle>
             <CardDescription className="text-slate-600">
-              All expenses are allocated to donors using First-In-First-Out (FIFO) matching
+              All expenses with receipt documentation
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -316,26 +356,53 @@ export function OrganizationDashboard() {
           </CardContent>
         </Card>
 
-        {/* FIFO Explanation */}
-        <Card className="mt-8 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        {/* Donor Management */}
+        <Card className="rounded-3xl border-pink-100 shadow-xl shadow-pink-100/50 bg-white">
           <CardHeader>
-            <CardTitle>How FIFO Allocation Works</CardTitle>
+            <CardTitle className="text-slate-900">Donor Management</CardTitle>
+            <CardDescription className="text-slate-600">
+              Track donor contributions and thank you status
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3 text-sm text-slate-700">
-              <p>
-                <strong>First-In-First-Out (FIFO)</strong> ensures fair and transparent allocation of donations to expenditures:
-              </p>
-              <ol className="list-decimal list-inside space-y-2 ml-2">
-                <li>Donations are queued in the order they are received</li>
-                <li>Expenditures are matched to donations in chronological order</li>
-                <li>Each donor sees exactly which expenses their money funded</li>
-                <li>If an expenditure exceeds a single donation, it's split across multiple donors</li>
-              </ol>
-              <p className="pt-2 italic">
-                Example: If you spend $500 on supplies, and Donor A gave $400 before Donor B gave $300,
-                then Donor A sees $400 went to supplies, and Donor B sees $100 of their $300 went to supplies.
-              </p>
+            <div className="space-y-4">
+              {donors.map((donor) => (
+                <motion.div
+                  key={donor.id}
+                  className="flex items-center gap-4 p-4 bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-2xl border border-pink-100"
+                  whileHover={{ scale: 1.01 }}
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <h4 className="font-semibold text-slate-900">{donor.name}</h4>
+                        <p className="text-sm text-slate-600">{donor.email}</p>
+                      </div>
+                      <div className="text-right ml-4">
+                        <div className="text-lg font-bold text-pink-600">
+                          ${donor.totalDonated.toLocaleString()}
+                        </div>
+                        <p className="text-xs text-slate-500">
+                          Last: {new Date(donor.lastDonation).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => handleToggleThanked(donor.id)}
+                    variant={donor.thanked ? "default" : "outline"}
+                    size="sm"
+                    className={`gap-2 rounded-xl ${
+                      donor.thanked
+                        ? "bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0"
+                        : "border-pink-300 text-pink-600 hover:bg-pink-50"
+                    }`}
+                  >
+                    <Check className="w-4 h-4" />
+                    {donor.thanked ? "Thanked" : "Mark Thanked"}
+                  </Button>
+                </motion.div>
+              ))}
             </div>
           </CardContent>
         </Card>
