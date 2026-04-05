@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { LogOut, DollarSign, TrendingUp, Heart, Sparkles, MapPin, Plus, FileText } from "lucide-react";
+import { LogOut, DollarSign, TrendingUp, Heart, Sparkles, Plus, FileText } from "lucide-react";
 import { getCategoryDisplay } from "../constants/expenseCategories";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -9,7 +9,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { motion } from "motion/react";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 function parseTimestampMs(v: unknown): number {
   if (v == null) return NaN;
@@ -22,6 +22,53 @@ function formatDonationDate(donation: { date?: string; createdAt?: number }) {
   const ms = parseTimestampMs(donation.date ?? donation.createdAt);
   if (Number.isNaN(ms)) return "—";
   return new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
+type OrgDonationGroup = {
+  orgId: string;
+  organization: string;
+  totalAmount: number;
+  totalAllocated: number;
+  allocations: any[];
+  lastMs: number;
+  donationCount: number;
+};
+
+function aggregateDonationsByOrg(donations: any[]): OrgDonationGroup[] {
+  const map = new Map<string, Omit<OrgDonationGroup, "totalAllocated">>();
+  for (const d of donations) {
+    const oid = String(d.orgId ?? "");
+    if (!oid) continue;
+    if (!map.has(oid)) {
+      map.set(oid, {
+        orgId: oid,
+        organization: d.organization || "Organization",
+        totalAmount: 0,
+        allocations: [],
+        lastMs: 0,
+        donationCount: 0,
+      });
+    }
+    const g = map.get(oid)!;
+    g.totalAmount += Number(d.amount || 0);
+    g.donationCount += 1;
+    const ms = parseTimestampMs(d.date ?? d.createdAt);
+    if (!Number.isNaN(ms)) g.lastMs = Math.max(g.lastMs, ms);
+    for (const a of d.allocations || []) g.allocations.push(a);
+  }
+  return Array.from(map.values())
+    .map((g) => ({
+      ...g,
+      totalAllocated: g.allocations.reduce((s, a) => s + Number(a.amount || 0), 0),
+    }))
+    .sort((a, b) => b.lastMs - a.lastMs);
+}
+
+function formatAggregatedOrgSubtitle(g: OrgDonationGroup) {
+  if (g.donationCount <= 1) {
+    return `Donated on ${formatDonationDate({ createdAt: g.lastMs })}`;
+  }
+  return `${g.donationCount} gifts to this organization · Last on ${formatDonationDate({ createdAt: g.lastMs })}`;
 }
 
 export function DonorDashboard() {
@@ -92,6 +139,11 @@ export function DonorDashboard() {
     try { localStorage.removeItem('tracer_user'); } catch {}
     window.location.assign('/');
   };
+
+  const donationsByOrg = useMemo(
+    () => aggregateDonationsByOrg(donorDataState?.donations || []),
+    [donorDataState?.donations],
+  );
 
   const handleAddDonation = async () => {
     if (!newDonation.amount || !newDonation.orgId || !donor) return;
@@ -374,9 +426,9 @@ export function DonorDashboard() {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-slate-900">Your Donations</h2>
 
-          {(donorDataState?.donations || []).map((donation: any, donationIdx: number) => (
+          {donationsByOrg.map((g, donationIdx) => (
             <motion.div
-              key={donation.id}
+              key={g.orgId}
               initial={{ opacity: 0, x: -50 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.6 + donationIdx * 0.1 }}
@@ -385,9 +437,9 @@ export function DonorDashboard() {
                 <CardHeader className="bg-gradient-to-r from-pink-50 via-rose-50 to-orange-50 border-b border-pink-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg text-slate-900">{donation.organization || "Organization"}</CardTitle>
+                      <CardTitle className="text-lg text-slate-900">{g.organization}</CardTitle>
                       <CardDescription className="mt-1 text-slate-600">
-                        Donated on {formatDonationDate(donation)}
+                        {formatAggregatedOrgSubtitle(g)}
                       </CardDescription>
                     </div>
                     <motion.div
@@ -397,7 +449,7 @@ export function DonorDashboard() {
                       transition={{ duration: 0.5, delay: 0.8 + donationIdx * 0.1, type: "spring" }}
                     >
                       <div className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
-                        ${Number(donation.amount).toLocaleString()}
+                        ${Number(g.totalAmount).toLocaleString()}
                       </div>
                       <div className="text-sm text-slate-600">Total donated</div>
                     </motion.div>
@@ -410,7 +462,7 @@ export function DonorDashboard() {
                         Allocation Progress
                       </span>
                       <span className="text-sm font-medium text-slate-900">
-                        ${((donation.allocations || []).reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0)).toLocaleString()} / ${Number(donation.amount).toLocaleString()}
+                        ${g.totalAllocated.toLocaleString()} / ${Number(g.totalAmount).toLocaleString()}
                       </span>
                     </div>
                     <motion.div
@@ -420,7 +472,7 @@ export function DonorDashboard() {
                       style={{ transformOrigin: "left" }}
                     >
                       <Progress
-                        value={(((donation.allocations || []) as any[]).reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0) / Number(donation.amount || 1)) * 100}
+                        value={g.totalAmount > 0 ? (g.totalAllocated / g.totalAmount) * 100 : 0}
                         className="h-2.5 bg-pink-100"
                       />
                     </motion.div>
@@ -428,8 +480,7 @@ export function DonorDashboard() {
 
                   <div className="space-y-4">
                     <h4 className="font-semibold text-slate-900">Where Your Money Went:</h4>
-                      {(donation.allocations || []).map((allocation: any, idx: number) => {
-                      // allocation from backend: { expenseId, orgId, amount, expenseDescription, expenseCreatedAt, expenseCategory }
+                      {(g.allocations || []).map((allocation: any, idx: number) => {
                       const label = allocation.expenseCategory || allocation.expenseDescription || "Expense";
                       const disp = getCategoryDisplay(label);
                       const Icon = disp.Icon;
@@ -444,11 +495,10 @@ export function DonorDashboard() {
                           return Number.isNaN(ms) ? new Date().toISOString() : new Date(ms).toISOString();
                         })(),
                         receipt: allocation.receipt || "",
-                        locations: allocation.locations || [],
                       };
                       return (
                         <motion.div
-                          key={idx}
+                          key={`${allocation.expenseId}-${idx}`}
                           className="flex gap-4 p-4 bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-2xl border border-pink-100"
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
@@ -482,72 +532,23 @@ export function DonorDashboard() {
                               <p className="text-xs text-slate-500">
                                 Spent on {new Date(alloc.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                               </p>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-7 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full gap-1.5"
-                                  onClick={() => {
-                                    const r = allocation.receipt;
-                                    if (!r) {
-                                      alert('No receipt available');
-                                      return;
-                                    }
-                                    const url = r.startsWith('http') ? r : `http://localhost:3000${r}`;
-                                    window.open(url, '_blank', 'noopener,noreferrer');
-                                  }}
-                                >
-                                  <FileText className="w-3.5 h-3.5" />
-                                  View Receipt
-                                </Button>
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      className="h-7 text-xs bg-pink-100 hover:bg-pink-200 text-pink-700 rounded-full gap-1.5"
-                                    >
-                                      <MapPin className="w-3.5 h-3.5" />
-                                      View Locations
-                                    </Button>
-                                  </DialogTrigger>
-                                <DialogContent className="max-w-2xl bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200">
-                                  <DialogHeader>
-                                    <DialogTitle className="text-slate-900 flex items-center gap-2">
-                                      <div className={`w-10 h-10 ${alloc.color} rounded-xl flex items-center justify-center`}> 
-                                        <Icon className="w-5 h-5 text-white" />
-                                      </div>
-                                      {alloc.category} Recipients
-                                    </DialogTitle>
-                                    <DialogDescription className="text-slate-600">
-                                      Your ${alloc.amount} donation supported these locations
-                                    </DialogDescription>
-                                  </DialogHeader>
-                                  <div className="space-y-3 mt-4">
-                                    {alloc.locations.map((location: any, locIdx: number) => (
-                                      <motion.div
-                                        key={locIdx}
-                                        className="flex gap-4 p-4 bg-white rounded-2xl border border-pink-100 shadow-sm"
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ duration: 0.3, delay: locIdx * 0.1 }}
-                                      >
-                                        <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-pink-200 to-rose-200 rounded-xl flex items-center justify-center">
-                                          <MapPin className="w-5 h-5 text-pink-600" />
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-start justify-between gap-2 mb-1">
-                                            <h6 className="font-semibold text-slate-900">{location.name}</h6>
-                                            <span className="font-bold text-pink-600 text-sm">${location.amount}</span>
-                                          </div>
-                                          <p className="text-sm text-slate-600">{location.address}</p>
-                                        </div>
-                                      </motion.div>
-                                    ))}
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full gap-1.5"
+                                onClick={() => {
+                                  const r = allocation.receipt;
+                                  if (!r) {
+                                    alert('No receipt available');
+                                    return;
+                                  }
+                                  const url = r.startsWith('http') ? r : `http://localhost:3000${r}`;
+                                  window.open(url, '_blank', 'noopener,noreferrer');
+                                }}
+                              >
+                                <FileText className="w-3.5 h-3.5" />
+                                View Receipt
+                              </Button>
                             </div>
                           </div>
                         </motion.div>
