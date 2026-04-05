@@ -551,7 +551,15 @@ export function DonorDashboard() {
                                   variant="ghost"
                                   size="sm"
                                   className="h-7 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full gap-1.5"
-                                  onClick={() => alert(`Viewing receipt: ${allocation.receipt}`)}
+                                  onClick={() => {
+                                    const r = allocation.receipt;
+                                    if (!r) {
+                                      alert('No receipt available');
+                                      return;
+                                    }
+                                    const url = r.startsWith('http') ? r : `http://localhost:3000${r}`;
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  }}
                                 >
                                   <FileText className="w-3.5 h-3.5" />
                                   View Receipt
