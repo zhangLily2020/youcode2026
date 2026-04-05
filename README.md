@@ -44,5 +44,5 @@ The app will be available at `http://localhost:5173/`.
 ## Built With
 
 - **Frontend:** React, Vite, Tailwind CSS
-- **Design:** Glassbox Design System
-- **Icons:** Lucide React / Phosphor Icons
+- **Backend:** Node.js, Express, TypeScript, MongoDB
+- **Design:** Figma
