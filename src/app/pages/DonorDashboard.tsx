@@ -100,33 +100,95 @@ export function DonorDashboard() {
   const navigate = useNavigate();
   const [countUp, setCountUp] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newDonation, setNewDonation] = useState({
-    amount: "",
-    organization: "",
-  });
+  const [newDonation, setNewDonation] = useState({ amount: "", orgId: "" });
+  const [donor, setDonor] = useState<any | null>(null);
+  const [donorDataState, setDonorDataState] = useState<any | null>(null);
+  const [organizations, setOrganizations] = useState<Array<any>>([]);
+
+  useEffect(() => {
+    const raw = localStorage.getItem('tracer_user');
+    if (!raw) {
+      navigate('/');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      // parsed may be { role: 'donor', donor: {...} } from backend
+      const d = parsed.donor || parsed.organization || parsed;
+      setDonor(d);
+      // fetch donor dashboard
+      (async () => {
+        try {
+          const resp = await fetch(`http://localhost:3000/api/dashboard/donor/${d.id}`);
+          if (resp.ok) {
+            const json = await resp.json();
+            setDonorDataState(json.donor);
+            setCountUp(json.donor.totalDonated || 0);
+          }
+        } catch (err) {
+          console.error('Failed to fetch donor dashboard', err);
+        }
+      })();
+      // fetch organizations for donation select
+      (async () => {
+        try {
+          const resp2 = await fetch('http://localhost:3000/api/organizations');
+          if (resp2.ok) {
+            const orgs = await resp2.json();
+            setOrganizations(orgs);
+            if (orgs.length) setNewDonation((s) => ({ ...s, orgId: orgs[0].id }));
+          }
+        } catch (err) {
+          console.error('Failed to fetch organizations', err);
+        }
+      })();
+    } catch (e) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCountUp((prev) => {
-        if (prev < donorData.totalDonated) {
-          return Math.min(prev + 50, donorData.totalDonated);
+        if (!donorDataState) return prev;
+        if (prev < donorDataState.totalDonated) {
+          return Math.min(prev + 50, donorDataState.totalDonated);
         }
         return prev;
       });
     }, 20);
     return () => clearInterval(interval);
-  }, []);
+  }, [donorDataState]);
 
   const handleLogout = () => {
-    navigate("/");
+    try { localStorage.removeItem('tracer_user'); } catch {}
+    window.location.assign('/');
   };
 
-  const handleAddDonation = () => {
-    if (newDonation.amount && newDonation.organization) {
-      // In a real app, this would make an API call
-      alert(`Donation of $${newDonation.amount} to ${newDonation.organization} submitted successfully!`);
-      setNewDonation({ amount: "", organization: "" });
+  const handleAddDonation = async () => {
+    if (!newDonation.amount || !newDonation.orgId || !donor) return;
+    try {
+      const resp = await fetch('http://localhost:3000/api/donations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ donorId: donor.id, orgId: newDonation.orgId, amount: Number(newDonation.amount) }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        alert(err.error || 'Failed to create donation');
+        return;
+      }
+      // refresh donor dashboard
+      const dash = await fetch(`http://localhost:3000/api/dashboard/donor/${donor.id}`);
+      if (dash.ok) {
+        const json = await dash.json();
+        setDonorDataState(json.donor);
+      }
+      setNewDonation({ amount: "", orgId: "" });
       setIsDialogOpen(false);
+    } catch (err) {
+      console.error('Donation failed', err);
+      alert('Donation failed');
     }
   };
 
@@ -175,10 +237,10 @@ export function DonorDashboard() {
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
           </motion.div>
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">{donorData.name}</p>
-              <p className="text-xs text-slate-600">{donorData.email}</p>
-            </div>
+                    <div className="text-right">
+                        <p className="text-sm font-medium text-slate-900">{donorDataState?.name || 'Donor'}</p>
+                        <p className="text-xs text-slate-600">{donorDataState?.email || ''}</p>
+                      </div>
             <Button onClick={handleLogout} variant="outline" size="sm" className="gap-2 rounded-xl border-pink-200 text-pink-600 hover:bg-pink-50 hover:text-pink-700">
               <LogOut className="w-4 h-4" />
               Logout
@@ -204,7 +266,7 @@ export function DonorDashboard() {
               Track where your donations go and see the real-world impact
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white border-0 rounded-xl shadow-lg shadow-pink-200">
                 <Plus className="w-4 h-4" />
@@ -222,16 +284,16 @@ export function DonorDashboard() {
                 <div className="space-y-2">
                   <Label htmlFor="organization" className="text-slate-700">Organization</Label>
                   <Select
-                    value={newDonation.organization}
-                    onValueChange={(value) => setNewDonation({ ...newDonation, organization: value })}
+                    value={newDonation.orgId}
+                    onValueChange={(value) => setNewDonation({ ...newDonation, orgId: value })}
                   >
                     <SelectTrigger className="rounded-xl border-pink-200 focus:border-pink-400 focus:ring-pink-400">
                       <SelectValue placeholder="Select an organization" />
                     </SelectTrigger>
                     <SelectContent>
-                      {availableOrganizations.map((org) => (
-                        <SelectItem key={org} value={org}>
-                          {org}
+                      {organizations.map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -261,7 +323,7 @@ export function DonorDashboard() {
           </Dialog>
         </motion.div>
 
-        {/* Stats Overview */}
+  {/* Stats Overview */}
         <div className="grid md:grid-cols-3 gap-6 mb-8">
           {[
             {
@@ -381,7 +443,7 @@ export function DonorDashboard() {
         <div className="space-y-6">
           <h2 className="text-2xl font-bold text-slate-900">Your Donations</h2>
 
-          {donorData.donations.map((donation, donationIdx) => (
+          {(donorDataState?.donations || []).map((donation: any, donationIdx: number) => (
             <motion.div
               key={donation.id}
               initial={{ opacity: 0, x: -50 }}
@@ -404,7 +466,7 @@ export function DonorDashboard() {
                       transition={{ duration: 0.5, delay: 0.8 + donationIdx * 0.1, type: "spring" }}
                     >
                       <div className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
-                        ${donation.amount.toLocaleString()}
+                        ${Number(donation.amount).toLocaleString()}
                       </div>
                       <div className="text-sm text-slate-600">Total donated</div>
                     </motion.div>
@@ -417,7 +479,7 @@ export function DonorDashboard() {
                         Allocation Progress
                       </span>
                       <span className="text-sm font-medium text-slate-900">
-                        ${donation.allocations.reduce((sum, a) => sum + a.amount, 0)} / ${donation.amount}
+                        ${((donation.allocations || []).reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0)).toLocaleString()} / ${Number(donation.amount).toLocaleString()}
                       </span>
                     </div>
                     <motion.div
@@ -427,7 +489,7 @@ export function DonorDashboard() {
                       style={{ transformOrigin: "left" }}
                     >
                       <Progress
-                        value={(donation.allocations.reduce((sum, a) => sum + a.amount, 0) / donation.amount) * 100}
+                        value={(((donation.allocations || []) as any[]).reduce((sum: number, a: any) => sum + Number(a.amount || 0), 0) / Number(donation.amount || 1)) * 100}
                         className="h-2.5 bg-pink-100"
                       />
                     </motion.div>
@@ -435,8 +497,19 @@ export function DonorDashboard() {
 
                   <div className="space-y-4">
                     <h4 className="font-semibold text-slate-900">Where Your Money Went:</h4>
-                    {donation.allocations.map((allocation, idx) => {
-                      const Icon = allocation.icon;
+                      {(donation.allocations || []).map((allocation: any, idx: number) => {
+                      // allocation from backend: { expenseId, orgId, amount, expenseDescription, expenseCreatedAt }
+                      const Icon = BookOpen;
+                      const alloc = {
+                        category: allocation.expenseDescription || 'Expense',
+                        amount: allocation.amount,
+                        icon: Icon,
+                        color: 'bg-gradient-to-br from-pink-400 to-rose-400',
+                        description: allocation.expenseDescription || '',
+                        date: allocation.expenseCreatedAt ? new Date(allocation.expenseCreatedAt).toISOString() : new Date().toISOString(),
+                        receipt: allocation.receipt || '',
+                        locations: allocation.locations || [],
+                      };
                       return (
                         <motion.div
                           key={idx}
@@ -450,7 +523,7 @@ export function DonorDashboard() {
                           }}
                         >
                           <motion.div
-                            className={`flex-shrink-0 w-14 h-14 ${allocation.color} rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200/50`}
+                            className={`flex-shrink-0 w-14 h-14 ${alloc.color} rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200/50`}
                             whileHover={{ rotate: 360, scale: 1.1 }}
                             transition={{ duration: 0.6 }}
                           >
@@ -458,20 +531,20 @@ export function DonorDashboard() {
                           </motion.div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between mb-1">
-                              <h5 className="font-semibold text-slate-900">{allocation.category}</h5>
+                              <h5 className="font-semibold text-slate-900">{alloc.category}</h5>
                               <motion.span
                                 className="font-bold text-pink-600"
                                 initial={{ scale: 0 }}
                                 animate={{ scale: 1 }}
                                 transition={{ duration: 0.3, delay: 1.3 + donationIdx * 0.1 + idx * 0.1, type: "spring" }}
                               >
-                                ${allocation.amount}
+                                ${alloc.amount}
                               </motion.span>
                             </div>
-                            <p className="text-sm text-slate-600 mb-2">{allocation.description}</p>
+                            <p className="text-sm text-slate-600 mb-2">{alloc.description}</p>
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <p className="text-xs text-slate-500">
-                                Spent on {new Date(allocation.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                                Spent on {new Date(alloc.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                               </p>
                               <div className="flex gap-2">
                                 <Button
@@ -497,17 +570,17 @@ export function DonorDashboard() {
                                 <DialogContent className="max-w-2xl bg-gradient-to-br from-pink-50 to-rose-50 border-pink-200">
                                   <DialogHeader>
                                     <DialogTitle className="text-slate-900 flex items-center gap-2">
-                                      <div className={`w-10 h-10 ${allocation.color} rounded-xl flex items-center justify-center`}>
+                                      <div className={`w-10 h-10 ${alloc.color} rounded-xl flex items-center justify-center`}> 
                                         <Icon className="w-5 h-5 text-white" />
                                       </div>
-                                      {allocation.category} Recipients
+                                      {alloc.category} Recipients
                                     </DialogTitle>
                                     <DialogDescription className="text-slate-600">
-                                      Your ${allocation.amount} donation supported these locations
+                                      Your ${alloc.amount} donation supported these locations
                                     </DialogDescription>
                                   </DialogHeader>
                                   <div className="space-y-3 mt-4">
-                                    {allocation.locations.map((location, locIdx) => (
+                                    {alloc.locations.map((location: any, locIdx: number) => (
                                       <motion.div
                                         key={locIdx}
                                         className="flex gap-4 p-4 bg-white rounded-2xl border border-pink-100 shadow-sm"

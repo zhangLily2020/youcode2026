@@ -19,19 +19,21 @@ export function LoginPage() {
     e.preventDefault();
 
     try {
-      // 1. Call the backend
-      const response = await fetch(`http://localhost:3000/api/donors`, {
+      const response = await fetch("http://localhost:3000/api/login", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: email, email: email, password: password })
+        body: JSON.stringify({ email, password, role: 'donor' }),
       });
-      const data = await response.json();
-      
-      // 2. Alert the response
-      alert(data);
-      
-      // 3. Continue with mock login navigation
-      navigate("/donor");
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        alert(err.error || 'Login failed');
+        return;
+      }
+      const result = await response.json();
+      // store simple session in localStorage for demo
+      try { localStorage.setItem('tracer_user', JSON.stringify(result)); } catch {}
+      // full page navigation to avoid dev HMR unmount issues
+      window.location.assign('/donor');
     } catch (error) {
       console.error("Failed to fetch from backend:", error);
       alert("Could not connect to backend!");
@@ -42,19 +44,19 @@ export function LoginPage() {
     e.preventDefault();
 
     try {
-      // 1. Call the backend
-      const response = await fetch(`http://localhost:3000/api/organizations`, {
+      const response = await fetch("http://localhost:3000/api/login", {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: email, email: email, password: password })
+        body: JSON.stringify({ email, password, role: 'org' }),
       });
-      const data = await response.json();
-      
-      // 2. Alert the response
-      alert(data);
-      
-      // 3. Continue with mock login navigation
-      navigate("/organization");
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        alert(err.error || 'Login failed');
+        return;
+      }
+      const result = await response.json();
+      try { localStorage.setItem('tracer_user', JSON.stringify(result)); } catch {}
+      window.location.assign('/organization');
     } catch (error) {
       console.error("Failed to fetch from backend:", error);
       alert("Could not connect to backend!");
