@@ -20,7 +20,7 @@ export function LoginPage() {
 
     try {
       // 1. Call the backend
-      const response = await fetch("http://localhost:5000/api/hello");
+      const response = await fetch("http://localhost:3000/api/hello");
       const data = await response.json();
       
       // 2. Alert the response
@@ -39,7 +39,7 @@ export function LoginPage() {
 
     try {
       // 1. Call the backend
-      const response = await fetch("http://localhost:5000/api/hello");
+      const response = await fetch("http://localhost:3000/api/hello");
       const data = await response.json();
       
       // 2. Alert the response
