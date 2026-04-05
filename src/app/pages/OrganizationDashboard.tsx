@@ -25,6 +25,7 @@ export function OrganizationDashboard() {
     amount: string;
     description: string;
     date: string;
+    location: string;
     receiptFile: File | null;
   }>({
     categoryKey: EXPENSE_CATEGORY_OPTIONS[0]?.value ?? "",
@@ -32,6 +33,7 @@ export function OrganizationDashboard() {
     amount: "",
     description: "",
     date: new Date().toISOString().slice(0, 10),
+    location: "",
     receiptFile: null,
   });
 
@@ -89,6 +91,7 @@ export function OrganizationDashboard() {
         form.append('description', newExpenditure.description);
         form.append('amount', String(Number(newExpenditure.amount)));
         form.append('date', newExpenditure.date);
+        form.append('location', newExpenditure.location);
         if (newExpenditure.receiptFile) form.append('receipt', newExpenditure.receiptFile);
 
         const resp = await fetch(`${API_ORIGIN}/api/expenses`, {
@@ -113,6 +116,7 @@ export function OrganizationDashboard() {
           amount: "",
           description: "",
           date: new Date().toISOString().slice(0, 10),
+          location: "",
           receiptFile: null,
         });
         setIsDialogOpen(false);
@@ -214,7 +218,7 @@ export function OrganizationDashboard() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category" className="text-slate-700">Impact category</Label>
+                  <Label htmlFor="category" className="text-slate-700">Impact category <span className="text-red-500">*</span></Label>
                   <Select
                     value={newExpenditure.categoryKey}
                     onValueChange={(value) => setNewExpenditure({ ...newExpenditure, categoryKey: value })}
@@ -258,7 +262,7 @@ export function OrganizationDashboard() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="amount" className="text-slate-700">Amount ($)</Label>
+                  <Label htmlFor="amount" className="text-slate-700">Amount ($) <span className="text-red-500">*</span></Label>
                   <Input
                     id="amount"
                     type="number"
@@ -269,7 +273,7 @@ export function OrganizationDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description" className="text-slate-700">Description</Label>
+                  <Label htmlFor="description" className="text-slate-700">Description <span className="text-red-500">*</span></Label>
                   <Textarea
                     id="description"
                     placeholder="Describe the impact and usage of these funds"
@@ -279,7 +283,18 @@ export function OrganizationDashboard() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="date" className="text-slate-700">Date</Label>
+                  <Label htmlFor="location" className="text-slate-700">Location</Label>
+                  <Input
+                    id="location"
+                    type="text"
+                    placeholder="e.g., Main Street School, City Hospital, Community Center"
+                    value={newExpenditure.location}
+                    onChange={(e) => setNewExpenditure({ ...newExpenditure, location: e.target.value })}
+                    className="rounded-xl border-pink-200 focus:border-pink-400 focus:ring-pink-400"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="date" className="text-slate-700">Date <span className="text-red-500">*</span></Label>
                   <Input
                     id="date"
                     type="date"

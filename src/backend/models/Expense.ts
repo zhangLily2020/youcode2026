@@ -15,6 +15,7 @@ const expenseSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     amount: { type: Number, required: true },
     date: { type: String, default: () => new Date().toISOString() },
+    location: { type: String, default: "" },
     receipt: { type: String, default: null },
     status: { type: String, default: 'pending' },
     allocations: { type: [allocationSchema], default: [] },

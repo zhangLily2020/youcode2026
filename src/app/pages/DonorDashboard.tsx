@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { LogOut, DollarSign, TrendingUp, Heart, Sparkles, Plus, FileText } from "lucide-react";
+import { LogOut, DollarSign, TrendingUp, Heart, Sparkles, Plus, FileText, MapPin } from "lucide-react";
 import { getCategoryDisplay } from "../constants/expenseCategories";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
@@ -79,6 +79,7 @@ export function DonorDashboard() {
   const [donor, setDonor] = useState<any | null>(null);
   const [donorDataState, setDonorDataState] = useState<any | null>(null);
   const [organizations, setOrganizations] = useState<Array<any>>([]);
+  const [selectedLocation, setSelectedLocation] = useState<{ isOpen: boolean; location: string; category: string }>({ isOpen: false, location: "", category: "" });
 
   useEffect(() => {
     const raw = localStorage.getItem('tracer_user');
@@ -532,23 +533,41 @@ export function DonorDashboard() {
                               <p className="text-xs text-slate-500">
                                 Spent on {new Date(alloc.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                               </p>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full gap-1.5"
-                                onClick={() => {
-                                  const r = allocation.receipt;
-                                  if (!r) {
-                                    alert('No receipt available');
-                                    return;
-                                  }
-                                  const url = r.startsWith('http') ? r : `http://localhost:3000${r}`;
-                                  window.open(url, '_blank', 'noopener,noreferrer');
-                                }}
-                              >
-                                <FileText className="w-3.5 h-3.5" />
-                                View Receipt
-                              </Button>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-full gap-1.5"
+                                  onClick={() => {
+                                    const r = allocation.receipt;
+                                    if (!r) {
+                                      alert('No receipt available');
+                                      return;
+                                    }
+                                    const url = r.startsWith('http') ? r : `http://localhost:3000${r}`;
+                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                  }}
+                                >
+                                  <FileText className="w-3.5 h-3.5" />
+                                  View Receipt
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs bg-violet-100 hover:bg-violet-200 text-violet-700 rounded-full gap-1.5"
+                                  onClick={() => {
+                                    const loc = allocation.location;
+                                    setSelectedLocation({
+                                      isOpen: true,
+                                      location: loc || "No location specified",
+                                      category: alloc.category,
+                                    });
+                                  }}
+                                >
+                                  <MapPin className="w-3.5 h-3.5" />
+                                  View Location
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </motion.div>
@@ -560,6 +579,38 @@ export function DonorDashboard() {
             </motion.div>
           ))}
         </div>
+
+        {/* Location Modal */}
+        <Dialog open={selectedLocation.isOpen} onOpenChange={(open) => setSelectedLocation({ ...selectedLocation, isOpen: open })}>
+          <DialogContent className="sm:max-w-md rounded-3xl border-pink-100">
+            <DialogHeader>
+              <DialogTitle className="text-slate-900">Donation Location</DialogTitle>
+              <DialogDescription className="text-slate-600">
+                Where your donation for {selectedLocation.category} was spent
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-violet-100 to-fuchsia-100 rounded-2xl flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-6 h-6 text-violet-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Location</p>
+                  <p className="text-lg font-semibold text-slate-900">{selectedLocation.location}</p>
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setSelectedLocation({ ...selectedLocation, isOpen: false })}
+                className="flex-1 rounded-xl border-pink-200 text-pink-600 hover:bg-pink-50"
+              >
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
