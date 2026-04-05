@@ -6,12 +6,35 @@ import Organization from './models/Organization';
 import Donation from './models/Donation';
 import Expense from './models/Expense';
 import mongoose from 'mongoose';
+// multer is used for handling multipart/form-data uploads (install with `npm install multer`)
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const app = express();
 app.use(express.json());
 
 app.use(cors());
 app.use(express.json());
+
+// Ensure uploads directory exists and serve it
+const UPLOADS_DIR = path.join(process.cwd(), 'backend', 'uploads');
+try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch (e) {}
+app.use('/uploads', express.static(UPLOADS_DIR));
+
+// Multer setup for receipt uploads
+const storage = multer.diskStorage({
+  destination: function (req: any, file: any, cb: any) {
+    cb(null, UPLOADS_DIR);
+  },
+  filename: function (req: any, file: any, cb: any) {
+    const safe = `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_')}`;
+    cb(null, safe);
+  }
+});
+const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Async FIFO allocation helper using MongoDB transactions.
 // Allocates expense.amount from oldest donations (by createdAt) for the given orgId.
@@ -41,6 +64,8 @@ async function allocateExpenseMongo(orgId: string, expenseId: string, amount: nu
       // assign allocations and unallocated; keep types flexible with `any` to avoid strict DocumentArray typing issues
       (expense as any).allocations = allocations.map(a => ({ donationId: a.donationId, amount: a.amount }));
       expense.unallocated = remaining;
+      // update status field so frontend can display allocation state
+      (expense as any).status = remaining > 0 ? 'pending' : 'allocated';
       await expense.save({ session });
     }
 
@@ -175,12 +200,16 @@ app.post('/api/donations', async (req: Request, res: Response) => {
   }
 });
 
-// Create expense and run FIFO allocation (Mongo)
-app.post('/api/expenses', async (req: Request, res: Response) => {
-  const { orgId, category, description, amount, date, receipt } = req.body;
+// Create expense and run FIFO allocation (Mongo). Accepts multipart/form-data with optional `receipt` file.
+app.post('/api/expenses', upload.single('receipt'), async (req: Request, res: Response) => {
+  // multer populates req.file and req.body
+  const body: any = req.body || {};
+  const file: any = (req as any).file;
+  const { orgId, category, description, amount, date } = body;
   if (!orgId || !amount) return res.status(400).json({ error: 'orgId and amount required' });
   try {
-    const expenseDoc = new Expense({ orgId, description: description || '', amount: Number(amount), allocations: [], unallocated: Number(amount), date: date || new Date().toISOString(), receipt: receipt || null, status: 'pending', createdAt: Date.now() });
+    const receiptPath = file ? `/uploads/${file.filename}` : (body.receipt || null);
+    const expenseDoc = new Expense({ orgId, category: category || null, description: description || '', amount: Number(amount), allocations: [], unallocated: Number(amount), date: date || new Date().toISOString(), receipt: receiptPath, status: 'pending', createdAt: Date.now() });
     const saved = await expenseDoc.save();
     const allocationResult = await allocateExpenseMongo(orgId, saved._id.toString(), Number(amount));
     const updated = await Expense.findById(saved._id).lean();
@@ -210,7 +239,7 @@ app.get('/api/dashboard/donor/:id', async (req: Request, res: Response) => {
         if (!exp.allocations) continue;
         for (const a of exp.allocations) {
           if ((a as any).donationId && donationIds.find(di => di.toString() === (a as any).donationId.toString()) && (a as any).donationId.toString() === (d as any)._id.toString()) {
-            allocations.push({ expenseId: (exp as any)._id.toString(), orgId: (exp as any).orgId, amount: (a as any).amount, expenseDescription: (exp as any).description, expenseCreatedAt: (exp as any).createdAt });
+            allocations.push({ expenseId: (exp as any)._id.toString(), orgId: (exp as any).orgId, amount: (a as any).amount, expenseDescription: (exp as any).description, expenseCreatedAt: (exp as any).createdAt, receipt: (exp as any).receipt || null });
           }
         }
       }

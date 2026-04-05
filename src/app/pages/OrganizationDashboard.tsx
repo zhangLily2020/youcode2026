@@ -67,7 +67,7 @@ export function OrganizationDashboard() {
   const [donors, setDonors] = useState<any[]>([]);
   const [organization, setOrganization] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newExpenditure, setNewExpenditure] = useState({ category: "", amount: "", description: "", date: "" });
+  const [newExpenditure, setNewExpenditure] = useState<{ category: string; amount: string; description: string; date: string; receiptFile?: File | null }>({ category: "", amount: "", description: "", date: "", receiptFile: null });
 
   useEffect(() => {
     const raw = localStorage.getItem('tracer_user');
@@ -116,16 +116,17 @@ export function OrganizationDashboard() {
     if (!organization) return;
     if (newExpenditure.category && newExpenditure.amount && newExpenditure.description && newExpenditure.date) {
       try {
+        const form = new FormData();
+        form.append('orgId', organization.id);
+        form.append('category', newExpenditure.category);
+        form.append('description', newExpenditure.description);
+        form.append('amount', String(Number(newExpenditure.amount)));
+        form.append('date', newExpenditure.date);
+        if (newExpenditure.receiptFile) form.append('receipt', newExpenditure.receiptFile);
+
         const resp = await fetch('http://localhost:3000/api/expenses', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orgId: organization.id,
-            category: newExpenditure.category,
-            description: newExpenditure.description,
-            amount: Number(newExpenditure.amount),
-            date: newExpenditure.date,
-          }),
+          body: form,
         });
         if (!resp.ok) {
           const err = await resp.json().catch(() => ({}));
@@ -140,7 +141,7 @@ export function OrganizationDashboard() {
           setExpenditures(j.expenditures || []);
           setDonors(j.donors || []);
         }
-        setNewExpenditure({ category: "", amount: "", description: "", date: "" });
+        setNewExpenditure({ category: "", amount: "", description: "", date: "", receiptFile: null });
         setIsDialogOpen(false);
       } catch (err) {
         console.error('Add expenditure failed', err);
@@ -272,10 +273,18 @@ export function OrganizationDashboard() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="receipt" className="text-slate-700">Receipt Upload</Label>
-                  <div className="border-2 border-dashed border-pink-200 rounded-2xl p-6 text-center hover:border-pink-300 transition-colors cursor-pointer bg-pink-50/50">
+                  <div
+                    onClick={() => document.getElementById('receiptInput')?.click()}
+                    className="border-2 border-dashed border-pink-200 rounded-2xl p-6 text-center hover:border-pink-300 transition-colors cursor-pointer bg-pink-50/50"
+                  >
                     <Upload className="w-8 h-8 text-pink-400 mx-auto mb-2" />
                     <p className="text-sm text-slate-600">Click to upload receipt</p>
                     <p className="text-xs text-slate-500 mt-1">PDF, PNG, JPG (Max 10MB)</p>
+                    <p className="text-xs text-slate-500 mt-2">{newExpenditure.receiptFile ? newExpenditure.receiptFile.name : ''}</p>
+                    <input id="receiptInput" type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => {
+                      const f = e.target.files && e.target.files[0];
+                      setNewExpenditure({ ...newExpenditure, receiptFile: f || null });
+                    }} />
                   </div>
                 </div>
               </div>
@@ -368,7 +377,7 @@ export function OrganizationDashboard() {
             <div className="space-y-4">
               {expenditures.map((expenditure) => (
                 <div
-                  key={expenditure.id}
+                  key={(expenditure._id || expenditure.id)}
                   className="flex items-start gap-4 p-4 bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-2xl border border-pink-100"
                 >
                   <div className="flex-1 min-w-0">
@@ -396,7 +405,19 @@ export function OrganizationDashboard() {
                       <span>
                         Date: {new Date(expenditure.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                       </span>
-                      <span>Receipt: {expenditure.receipt}</span>
+                      <span>
+                        Receipt: {expenditure.receipt ? (
+                          expenditure.receipt.endsWith('.pdf') ? (
+                            <a href={expenditure.receipt} target="_blank" rel="noreferrer" className="text-pink-600 underline">View PDF</a>
+                          ) : (
+                            <a href={expenditure.receipt} target="_blank" rel="noreferrer">
+                              <img src={expenditure.receipt} alt="receipt" className="inline-block h-10 rounded-md" />
+                            </a>
+                          )
+                        ) : (
+                          'No receipt'
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
