@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { LogOut, DollarSign, Upload, TrendingUp, Users, Plus, X, Heart, Sparkles, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -63,18 +63,47 @@ const organizationData = {
 
 export function OrganizationDashboard() {
   const navigate = useNavigate();
-  const [expenditures, setExpenditures] = useState(organizationData.expenditures);
-  const [donors, setDonors] = useState(organizationData.donors);
+  const [expenditures, setExpenditures] = useState<any[]>([]);
+  const [donors, setDonors] = useState<any[]>([]);
+  const [organization, setOrganization] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newExpenditure, setNewExpenditure] = useState({
-    category: "",
-    amount: "",
-    description: "",
-    date: "",
-  });
+  const [newExpenditure, setNewExpenditure] = useState({ category: "", amount: "", description: "", date: "" });
+
+  useEffect(() => {
+    const raw = localStorage.getItem('tracer_user');
+    if (!raw) {
+      navigate('/');
+      return;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      const org = parsed.organization || parsed.org || parsed;
+      if (!org || !org.id) {
+        navigate('/');
+        return;
+      }
+      setOrganization(org);
+      (async () => {
+        try {
+          const resp = await fetch(`http://localhost:3000/api/dashboard/org/${org.id}`);
+          if (resp.ok) {
+            const json = await resp.json();
+            setOrganization(json.organization || org);
+            setExpenditures(json.expenditures || []);
+            setDonors(json.donors || json.organization?.donors || []);
+          }
+        } catch (err) {
+          console.error('Failed to fetch org dashboard', err);
+        }
+      })();
+    } catch (e) {
+      navigate('/');
+    }
+  }, [navigate]);
 
   const handleLogout = () => {
-    navigate("/");
+    try { localStorage.removeItem('tracer_user'); } catch {}
+    window.location.assign('/');
   };
 
   const handleToggleThanked = (donorId: number) => {
@@ -83,25 +112,45 @@ export function OrganizationDashboard() {
     ));
   };
 
-  const handleAddExpenditure = () => {
+  const handleAddExpenditure = async () => {
+    if (!organization) return;
     if (newExpenditure.category && newExpenditure.amount && newExpenditure.description && newExpenditure.date) {
-      const expenditure = {
-        id: expenditures.length + 1,
-        category: newExpenditure.category,
-        amount: parseFloat(newExpenditure.amount),
-        description: newExpenditure.description,
-        date: newExpenditure.date,
-        receipt: `receipt-${String(expenditures.length + 1).padStart(3, '0')}.pdf`,
-        status: "pending" as const,
-      };
-      setExpenditures([...expenditures, expenditure]);
-      setNewExpenditure({ category: "", amount: "", description: "", date: "" });
-      setIsDialogOpen(false);
+      try {
+        const resp = await fetch('http://localhost:3000/api/expenses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orgId: organization.id,
+            category: newExpenditure.category,
+            description: newExpenditure.description,
+            amount: Number(newExpenditure.amount),
+            date: newExpenditure.date,
+          }),
+        });
+        if (!resp.ok) {
+          const err = await resp.json().catch(() => ({}));
+          alert(err.error || 'Failed to add expenditure');
+          return;
+        }
+        const json = await resp.json();
+        // refresh dashboard
+        const dash = await fetch(`http://localhost:3000/api/dashboard/org/${organization.id}`);
+        if (dash.ok) {
+          const j = await dash.json();
+          setExpenditures(j.expenditures || []);
+          setDonors(j.donors || []);
+        }
+        setNewExpenditure({ category: "", amount: "", description: "", date: "" });
+        setIsDialogOpen(false);
+      } catch (err) {
+        console.error('Add expenditure failed', err);
+        alert('Add expenditure failed');
+      }
     }
   };
 
-  const totalSpent = expenditures.reduce((sum, exp) => sum + exp.amount, 0);
-  const availableFunds = organizationData.totalReceived - totalSpent;
+  const totalSpent = expenditures.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
+  const availableFunds = (organization?.totalReceived || 0) - totalSpent;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 relative overflow-hidden">
