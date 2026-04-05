@@ -408,10 +408,10 @@ export function OrganizationDashboard() {
                       <span>
                         Receipt: {expenditure.receipt ? (
                           expenditure.receipt.endsWith('.pdf') ? (
-                            <a href={expenditure.receipt} target="_blank" rel="noreferrer" className="text-pink-600 underline">View PDF</a>
+                            <a href={(expenditure.receipt.startsWith('http') ? expenditure.receipt : `http://localhost:3000${expenditure.receipt}`)} target="_blank" rel="noreferrer" className="text-pink-600 underline">View PDF</a>
                           ) : (
-                            <a href={expenditure.receipt} target="_blank" rel="noreferrer">
-                              <img src={expenditure.receipt} alt="receipt" className="inline-block h-10 rounded-md" />
+                            <a href={(expenditure.receipt.startsWith('http') ? expenditure.receipt : `http://localhost:3000${expenditure.receipt}`)} target="_blank" rel="noreferrer">
+                              <img src={(expenditure.receipt.startsWith('http') ? expenditure.receipt : `http://localhost:3000${expenditure.receipt}`)} alt="receipt" className="inline-block h-10 rounded-md" />
                             </a>
                           )
                         ) : (
