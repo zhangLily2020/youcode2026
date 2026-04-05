@@ -11,7 +11,7 @@ app.get('/api/hello', (req: Request, res: Response) => {
   res.json({ message: "HelloWorld" });
 });
 
-const PORT = 5000;
+const PORT = 3000;
 app.listen(PORT, () => {
   console.log(`Backend server is running on http://localhost:${PORT}`);
 });
