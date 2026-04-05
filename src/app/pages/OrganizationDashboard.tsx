@@ -38,7 +38,7 @@ export function OrganizationDashboard() {
   });
 
   useEffect(() => {
-    const raw = localStorage.getItem('tracer_user');
+    const raw = localStorage.getItem('glassbox_user');
     if (!raw) {
       navigate('/');
       return;
@@ -70,7 +70,7 @@ export function OrganizationDashboard() {
   }, [navigate]);
 
   const handleLogout = () => {
-    try { localStorage.removeItem('tracer_user'); } catch {}
+    try { localStorage.removeItem('glassbox_user'); } catch {}
     window.location.assign('/');
   };
 
@@ -175,7 +175,7 @@ export function OrganizationDashboard() {
             <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200">
               <Heart className="w-6 h-6 text-white" fill="currentColor" />
             </div>
-            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
+            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">

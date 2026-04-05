@@ -1,6 +1,6 @@
-# Tracer
+# Glassbox
 
-**Tracer** is a transparency-first financial platform designed for BC Non-Profit Organizations (NPOs). It strengthens the bond between organizations and their supporters by providing real-time, receipt-level proof of impact.
+**Glassbox** is a transparency-first financial platform designed for BC Non-Profit Organizations (NPOs). It strengthens the bond between organizations and their supporters by providing real-time, receipt-level proof of impact.
 
 ## The Problem
 
@@ -44,5 +44,5 @@ The app will be available at `http://localhost:5173/`.
 ## Built With
 
 - **Frontend:** React, Vite, Tailwind CSS
-- **Design:** Tracer Design System
+- **Design:** Glassbox Design System
 - **Icons:** Lucide React / Phosphor Icons

@@ -120,7 +120,7 @@ export function LandingPage() {
             >
               <Heart className="w-6 h-6 text-white" fill="currentColor" />
             </motion.div>
-            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
+            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </motion.div>
           <motion.div
             whileHover={{ scale: 1.05 }}
@@ -275,7 +275,7 @@ export function LandingPage() {
       {/* Footer */}
       <footer className="border-t border-pink-100 mt-24 py-8 bg-white/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-slate-600">
-          <p>&copy; 2026 Tracer. Building trust through transparency.</p>
+          <p>&copy; 2026 Glassbox. Building trust through transparency.</p>
         </div>
       </footer>
     </div>

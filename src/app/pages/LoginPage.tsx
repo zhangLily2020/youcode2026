@@ -31,7 +31,7 @@ export function LoginPage() {
       }
       const result = await response.json();
       // store simple session in localStorage for demo
-      try { localStorage.setItem('tracer_user', JSON.stringify(result)); } catch {}
+      try { localStorage.setItem('glassbox_user', JSON.stringify(result)); } catch {}
       // full page navigation to avoid dev HMR unmount issues
       window.location.assign('/donor');
     } catch (error) {
@@ -55,7 +55,7 @@ export function LoginPage() {
         return;
       }
       const result = await response.json();
-      try { localStorage.setItem('tracer_user', JSON.stringify(result)); } catch {}
+      try { localStorage.setItem('glassbox_user', JSON.stringify(result)); } catch {}
       window.location.assign('/organization');
     } catch (error) {
       console.error("Failed to fetch from backend:", error);
@@ -106,7 +106,7 @@ export function LoginPage() {
             >
               <Heart className="w-6 h-6 text-white" fill="currentColor" />
             </motion.div>
-            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
+            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </motion.button>
           <Button
             onClick={() => navigate("/")}

@@ -82,7 +82,7 @@ export function DonorDashboard() {
   const [selectedLocation, setSelectedLocation] = useState<{ isOpen: boolean; location: string; category: string }>({ isOpen: false, location: "", category: "" });
 
   useEffect(() => {
-    const raw = localStorage.getItem('tracer_user');
+    const raw = localStorage.getItem('glassbox_user');
     if (!raw) {
       navigate('/');
       return;
@@ -137,7 +137,7 @@ export function DonorDashboard() {
   }, [donorDataState]);
 
   const handleLogout = () => {
-    try { localStorage.removeItem('tracer_user'); } catch {}
+    try { localStorage.removeItem('glassbox_user'); } catch {}
     window.location.assign('/');
   };
 
@@ -215,7 +215,7 @@ export function DonorDashboard() {
             >
               <Heart className="w-6 h-6 text-white" fill="currentColor" />
             </motion.div>
-            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Tracer</span>
+            <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </motion.div>
           <div className="flex items-center gap-4">
                     <div className="text-right">
