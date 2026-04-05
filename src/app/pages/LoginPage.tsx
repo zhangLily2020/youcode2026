@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, Heart, Sparkles } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -92,7 +92,7 @@ export function LoginPage() {
         ))}
       </div>
       {/* Navigation */}
-      <nav className="border-b border-pink-100 bg-white/80 backdrop-blur-sm relative z-10">
+      <nav className="sticky top-0 z-30 border-b border-pink-100 bg-white/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <motion.button
             onClick={() => navigate("/")}

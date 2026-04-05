@@ -1,3 +1,4 @@
+import React from "react";
 import { useNavigate } from "react-router";
 import { Home } from "lucide-react";
 import { Button } from "../components/ui/button";
