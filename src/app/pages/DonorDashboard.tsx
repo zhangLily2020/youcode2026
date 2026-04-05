@@ -10,6 +10,7 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { motion } from "motion/react";
 import React, { useEffect, useMemo, useState } from "react";
+import logo from "../components/img/logo.png";
 
 function parseTimestampMs(v: unknown): number {
   if (v == null) return NaN;
@@ -208,13 +209,7 @@ export function DonorDashboard() {
             className="flex items-center gap-2"
             whileHover={{ scale: 1.05 }}
           >
-            <motion.div
-              className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <Heart className="w-6 h-6 text-white" fill="currentColor" />
-            </motion.div>
+            <img src={logo} alt="Glassbox Logo" className="w-10 h-10" />
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </motion.div>
           <div className="flex items-center gap-4">

@@ -10,6 +10,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { motion } from "motion/react";
 import { EXPENSE_CATEGORY_OPTIONS, OTHER_VALUE, resolveExpenseCategory, getCategoryDisplay } from "../constants/expenseCategories";
+import logo from "../components/img/logo.png";
 
 const API_ORIGIN = "http://localhost:3000";
 
@@ -172,9 +173,7 @@ export function OrganizationDashboard() {
       <nav className="sticky top-0 z-30 border-b border-pink-100 bg-white/80 backdrop-blur-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200">
-              <Heart className="w-6 h-6 text-white" fill="currentColor" />
-            </div>
+            <img src={logo} alt="Glassbox Logo" className="w-10 h-10" />
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </div>
           <div className="flex items-center gap-4">

@@ -4,6 +4,7 @@ import { ArrowRight, Eye, Shield, Heart, Sparkles, TrendingUp } from "lucide-rea
 import { Button } from "../components/ui/button";
 import { motion } from "motion/react";
 import { getCategoryDisplay } from "../constants/expenseCategories";
+import logo from "../components/img/logo.png";
 
 const LANDING_IMPACT_ROWS = [
   {
@@ -113,13 +114,7 @@ export function LandingPage() {
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 300 }}
           >
-            <motion.div
-              className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-pink-200"
-              animate={{ rotate: [0, 5, -5, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <Heart className="w-6 h-6 text-white" fill="currentColor" />
-            </motion.div>
+            <img src={logo} alt="Glassbox Logo" className="w-10 h-10" />
             <span className="text-xl font-semibold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">Glassbox</span>
           </motion.div>
           <motion.div
