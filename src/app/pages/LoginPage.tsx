@@ -20,11 +20,15 @@ export function LoginPage() {
 
     try {
       // 1. Call the backend
-      const response = await fetch("http://localhost:3000/api/hello");
+      const response = await fetch(`http://localhost:3000/api/donors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: email, email: email, password: password })
+      });
       const data = await response.json();
       
       // 2. Alert the response
-      alert(data.message);
+      alert(data);
       
       // 3. Continue with mock login navigation
       navigate("/donor");
@@ -39,11 +43,15 @@ export function LoginPage() {
 
     try {
       // 1. Call the backend
-      const response = await fetch("http://localhost:3000/api/hello");
+      const response = await fetch(`http://localhost:3000/api/organizations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: email, email: email, password: password })
+      });
       const data = await response.json();
       
       // 2. Alert the response
-      alert(data.message);
+      alert(data);
       
       // 3. Continue with mock login navigation
       navigate("/organization");
