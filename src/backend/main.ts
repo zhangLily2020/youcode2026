@@ -224,6 +224,14 @@ app.post('/api/expenses', upload.single('receipt'), async (req: Request, res: Re
   }
 });
 
+function donationCreatedAtMs(d: any): number {
+  const c = d?.createdAt;
+  if (c == null) return Date.now();
+  if (typeof c === 'number' && !Number.isNaN(c)) return c;
+  const t = new Date(c).getTime();
+  return Number.isNaN(t) ? Date.now() : t;
+}
+
 // Get donor dashboard (Mongo)
 app.get('/api/dashboard/donor/:id', async (req: Request, res: Response) => {
   const donorId = req.params.id;
@@ -231,7 +239,29 @@ app.get('/api/dashboard/donor/:id', async (req: Request, res: Response) => {
     const donations = await Donation.find({ donorId }).lean();
     const donationIds = donations.map(d => (d as any)._id);
 
+    const uniqueOrgIds = Array.from(new Set(donations.map((d: any) => d.orgId.toString())));
+    const orgDocs = await Organization.find({ _id: { $in: uniqueOrgIds } }).lean();
+    const orgIdToName: Record<string, string> = {};
+    for (const o of orgDocs) {
+      orgIdToName[(o as any)._id.toString()] = (o as any).name;
+    }
+
     const expenses = await Expense.find({ 'allocations.donationId': { $in: donationIds } }).lean();
+
+    const impactByCategory: Record<string, number> = {};
+    for (const exp of expenses) {
+      if (!exp.allocations) continue;
+      for (const a of exp.allocations) {
+        const allocDonationId = (a as any).donationId;
+        if (!allocDonationId || !donationIds.some(di => di.toString() === allocDonationId.toString())) continue;
+        const label = ((exp as any).category && String((exp as any).category).trim()) ? String((exp as any).category).trim() : 'General';
+        impactByCategory[label] = (impactByCategory[label] || 0) + Number((a as any).amount || 0);
+      }
+    }
+
+    const impactSummary = Object.entries(impactByCategory)
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((x, y) => y.amount - x.amount);
 
     const donationsOut = donations.map(d => {
       const allocations: any[] = [];
@@ -239,20 +269,50 @@ app.get('/api/dashboard/donor/:id', async (req: Request, res: Response) => {
         if (!exp.allocations) continue;
         for (const a of exp.allocations) {
           if ((a as any).donationId && donationIds.find(di => di.toString() === (a as any).donationId.toString()) && (a as any).donationId.toString() === (d as any)._id.toString()) {
-            allocations.push({ expenseId: (exp as any)._id.toString(), orgId: (exp as any).orgId, amount: (a as any).amount, expenseDescription: (exp as any).description, expenseCreatedAt: (exp as any).createdAt, receipt: (exp as any).receipt || null });
+            allocations.push({ expenseId: (exp as any)._id.toString(), orgId: (exp as any).orgId, amount: (a as any).amount, expenseDescription: (exp as any).description, expenseCreatedAt: (exp as any).createdAt, expenseCategory: (exp as any).category || null, receipt: (exp as any).receipt || null });
           }
         }
       }
-      return { id: (d as any)._id.toString(), donorId: (d as any).donorId, orgId: (d as any).orgId, amount: d.amount, remaining: d.remaining, createdAt: d.createdAt, allocations };
+      const oid = (d as any).orgId.toString();
+      const createdMs = donationCreatedAtMs(d);
+      return {
+        id: (d as any)._id.toString(),
+        donorId: (d as any).donorId,
+        orgId: (d as any).orgId,
+        organization: orgIdToName[oid] || 'Unknown organization',
+        amount: d.amount,
+        remaining: d.remaining,
+        createdAt: createdMs,
+        date: new Date(createdMs).toISOString(),
+        allocations,
+      };
     });
 
     const donorDoc = await Donor.findById(donorId).lean();
     const donor = donorDoc ? { id: (donorDoc as any)._id.toString(), name: (donorDoc as any).name, email: (donorDoc as any).email } : { id: donorId, name: 'Unknown', email: '' };
 
     const totalDonated = donationsOut.reduce((s: number, x: any) => s + Number(x.amount || 0), 0);
-    const organizations = Array.from(new Set(donationsOut.map((d: any) => d.orgId)));
+    const totalAllocated = donations.reduce((s: number, d: any) => s + (Number(d.amount || 0) - Number(d.remaining ?? d.amount)), 0);
+    const fundsAllocatedPercent = totalDonated > 0 ? Math.min(100, Math.round((totalAllocated / totalDonated) * 100)) : 0;
+    const supportedOrgNames = Array.from(new Set(donations.map((d: any) => orgIdToName[d.orgId.toString()] || 'Unknown organization')));
+    const impactCategoryCount = Object.keys(impactByCategory).filter(k => impactByCategory[k] > 0).length;
 
-    res.json({ donor: { id: donor.id, name: donor.name, email: donor.email, totalDonated, organizations, donations: donationsOut } });
+    res.json({
+      donor: {
+        id: donor.id,
+        name: donor.name,
+        email: donor.email,
+        totalDonated,
+        donationCount: donations.length,
+        organizations: supportedOrgNames,
+        organizationIds: uniqueOrgIds,
+        supportedOrganizationCount: supportedOrgNames.length,
+        impactCategoryCount,
+        impactSummary,
+        fundsAllocatedPercent,
+        donations: donationsOut,
+      },
+    });
   } catch (err) {
     console.error('Donor dashboard error', err);
     res.status(500).json({ error: 'failed to load donor dashboard', details: String(err) });
@@ -269,11 +329,75 @@ app.get('/api/dashboard/org/:id', async (req: Request, res: Response) => {
     const donations = await Donation.find({ orgId }).lean();
     const totalReceived = donations.reduce((s: number, d: any) => s + Number(d.amount || 0), 0);
 
-    const expenditures = await Expense.find({ orgId }).lean();
-    const totalSpent = expenditures.reduce((s: number, e: any) => s + (Number(e.amount || 0) - (e.unallocated || 0)), 0);
-    const totalDonors = Array.from(new Set(donations.map((d: any) => d.donorId.toString()))).length;
+    const expenditures = await Expense.find({ orgId }).sort({ createdAt: -1 }).lean();
+    // Money drawn from the donor pool (FIFO), not the full expense amount when partially unallocated
+    const totalSpent = expenditures.reduce((s: number, e: any) => {
+      const amt = Number(e.amount || 0);
+      const unalloc = Number(e.unallocated ?? 0);
+      return s + Math.max(0, amt - unalloc);
+    }, 0);
 
-    res.json({ organization: { id: (orgDoc as any)._id.toString(), name: (orgDoc as any).name, email: (orgDoc as any).email }, totalReceived, totalSpent, totalDonors, expenditures });
+    // Pool still available to cover future expenses (matches sum of donation.remaining)
+    const availableFunds = donations.reduce((s: number, d: any) => s + Number(d.remaining ?? 0), 0);
+
+    const donorIdSet = new Set(donations.map((d: any) => d.donorId.toString()));
+    const totalDonors = donorIdSet.size;
+
+    const byDonor: Record<string, { total: number; lastMs: number }> = {};
+    for (const d of donations) {
+      const id = (d as any).donorId.toString();
+      const amt = Number((d as any).amount || 0);
+      const ms = donationCreatedAtMs(d);
+      if (!byDonor[id]) byDonor[id] = { total: 0, lastMs: 0 };
+      byDonor[id].total += amt;
+      if (ms > byDonor[id].lastMs) byDonor[id].lastMs = ms;
+    }
+    const donorIds = Object.keys(byDonor);
+    const donorDocs = donorIds.length ? await Donor.find({ _id: { $in: donorIds } }).lean() : [];
+    const donors = donorIds.map((id) => {
+      const doc = donorDocs.find((x: any) => x._id.toString() === id);
+      const agg = byDonor[id];
+      return {
+        id,
+        name: doc ? (doc as any).name : 'Unknown',
+        email: doc ? (doc as any).email : '',
+        totalDonated: agg.total,
+        lastDonation: new Date(agg.lastMs).toISOString().slice(0, 10),
+        thanked: false,
+      };
+    }).sort((a, b) => b.totalDonated - a.totalDonated);
+
+    const expendituresOut = expenditures.map((e: any) => ({
+      id: e._id.toString(),
+      _id: e._id.toString(),
+      orgId: e.orgId,
+      category: e.category || 'General',
+      description: e.description || '',
+      amount: Number(e.amount || 0),
+      unallocated: Number(e.unallocated ?? 0),
+      date: e.date,
+      receipt: e.receipt || null,
+      status: e.status || 'pending',
+      createdAt: e.createdAt,
+    }));
+
+    res.json({
+      organization: {
+        id: (orgDoc as any)._id.toString(),
+        name: (orgDoc as any).name,
+        email: (orgDoc as any).email,
+        totalReceived,
+        totalSpent,
+        availableFunds,
+        totalDonors,
+      },
+      totalReceived,
+      totalSpent,
+      availableFunds,
+      totalDonors,
+      donors,
+      expenditures: expendituresOut,
+    });
   } catch (err) {
     console.error('Org dashboard error', err);
     res.status(500).json({ error: 'failed to load org dashboard', details: String(err) });

@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router";
-import { LogOut, DollarSign, TrendingUp, Heart, Package, Utensils, Stethoscope, BookOpen, Home, Sparkles, MapPin, Plus, FileText } from "lucide-react";
+import { LogOut, DollarSign, TrendingUp, Heart, Sparkles, MapPin, Plus, FileText } from "lucide-react";
+import { getCategoryDisplay } from "../constants/expenseCategories";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Progress } from "../components/ui/progress";
@@ -8,93 +9,20 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
-// Mock data demonstrating allocation
-const donorData = {
-  name: "John Doe",
-  email: "john@example.com",
-  totalDonated: 1250,
-  organizations: ["Hope Foundation", "Education First"],
-  donations: [
-    {
-      id: 1,
-      date: "2026-01-15",
-      amount: 800,
-      organization: "Hope Foundation",
-      allocations: [
-        {
-          category: "School Supplies",
-          amount: 500,
-          icon: BookOpen,
-          color: "bg-gradient-to-br from-pink-400 to-rose-400",
-          description: "Textbooks and stationery for 50 students",
-          date: "2026-01-20",
-          receipt: "receipt-001.pdf",
-          locations: [
-            { name: "Riverside Elementary School", address: "123 Oak Street, Springfield", amount: 250 },
-            { name: "Maple Grove Primary", address: "456 Elm Avenue, Riverside", amount: 150 },
-            { name: "Sunset Valley School", address: "789 Pine Road, Greenfield", amount: 100 },
-          ],
-        },
-        {
-          category: "Food Program",
-          amount: 300,
-          icon: Utensils,
-          color: "bg-gradient-to-br from-rose-400 to-orange-400",
-          description: "Daily meals for 30 children",
-          date: "2026-01-25",
-          receipt: "receipt-002.pdf",
-          locations: [
-            { name: "Riverside Elementary School", address: "123 Oak Street, Springfield", amount: 180 },
-            { name: "Community Kitchen Center", address: "321 Main Street, Springfield", amount: 120 },
-          ],
-        },
-      ],
-    },
-    {
-      id: 2,
-      date: "2026-02-10",
-      amount: 450,
-      organization: "Education First",
-      allocations: [
-        {
-          category: "Food Program",
-          amount: 150,
-          icon: Utensils,
-          color: "bg-gradient-to-br from-orange-400 to-amber-400",
-          description: "Continued meal support",
-          date: "2026-02-12",
-          receipt: "receipt-003.pdf",
-          locations: [
-            { name: "Hope Community Center", address: "555 Bridge Street, Lakeside", amount: 90 },
-            { name: "Youth Outreach Kitchen", address: "777 Harbor Way, Bayside", amount: 60 },
-          ],
-        },
-        {
-          category: "Medical Supplies",
-          amount: 300,
-          icon: Stethoscope,
-          color: "bg-gradient-to-br from-pink-500 to-rose-500",
-          description: "First aid kits and medications",
-          date: "2026-02-15",
-          receipt: "receipt-004.pdf",
-          locations: [
-            { name: "St. Mary's Community Hospital", address: "888 Health Plaza, Riverside", amount: 180 },
-            { name: "Central Medical Clinic", address: "999 Wellness Drive, Springfield", amount: 120 },
-          ],
-        },
-      ],
-    },
-  ],
-};
+function parseTimestampMs(v: unknown): number {
+  if (v == null) return NaN;
+  if (typeof v === "number" && !Number.isNaN(v)) return v;
+  const t = new Date(String(v)).getTime();
+  return Number.isNaN(t) ? NaN : t;
+}
 
-const availableOrganizations = [
-  "Hope Foundation",
-  "Education First",
-  "Community Outreach",
-  "Youth Development Center",
-];
+function formatDonationDate(donation: { date?: string; createdAt?: number }) {
+  const ms = parseTimestampMs(donation.date ?? donation.createdAt);
+  if (Number.isNaN(ms)) return "—";
+  return new Date(ms).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
 
 export function DonorDashboard() {
   const navigate = useNavigate();
@@ -184,7 +112,7 @@ export function DonorDashboard() {
         const json = await dash.json();
         setDonorDataState(json.donor);
       }
-      setNewDonation({ amount: "", orgId: "" });
+      setNewDonation({ amount: "", orgId: organizations[0]?.id ?? "" });
       setIsDialogOpen(false);
     } catch (err) {
       console.error('Donation failed', err);
@@ -330,7 +258,7 @@ export function DonorDashboard() {
               icon: DollarSign,
               title: "Total Donated",
               value: `$${countUp.toLocaleString()}`,
-              subtitle: `Across ${donorData.donations.length} donations`,
+              subtitle: `Across ${donorDataState?.donationCount ?? donorDataState?.donations?.length ?? 0} donation${(donorDataState?.donationCount ?? donorDataState?.donations?.length ?? 0) === 1 ? "" : "s"}`,
               color: "from-pink-100 to-rose-100",
               iconColor: "text-pink-600",
               delay: 0,
@@ -338,8 +266,10 @@ export function DonorDashboard() {
             {
               icon: Heart,
               title: "Organizations Supported",
-              value: donorData.organizations.length,
-              subtitle: donorData.organizations.join(", "),
+              value: donorDataState?.supportedOrganizationCount ?? (donorDataState?.organizations?.length ?? 0),
+              subtitle: (donorDataState?.organizations && donorDataState.organizations.length > 0)
+                ? donorDataState.organizations.join(", ")
+                : "None yet — make a donation",
               color: "from-rose-100 to-orange-100",
               iconColor: "text-rose-600",
               delay: 0.1,
@@ -347,8 +277,10 @@ export function DonorDashboard() {
             {
               icon: TrendingUp,
               title: "Impact Categories",
-              value: 4,
-              subtitle: "Different areas of impact",
+              value: donorDataState?.impactCategoryCount ?? 0,
+              subtitle: (donorDataState?.impactSummary && donorDataState.impactSummary.length > 0)
+                ? donorDataState.impactSummary.map((x: { category: string }) => x.category).join(", ")
+                : "Categories appear when orgs report spending",
               color: "from-orange-100 to-amber-100",
               iconColor: "text-orange-600",
               delay: 0.2,
@@ -399,39 +331,38 @@ export function DonorDashboard() {
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-400 to-rose-400 rounded-2xl flex items-center justify-center shadow-md shadow-pink-200">
-                  <BookOpen className="w-6 h-6 text-white" />
+              {(donorDataState?.impactSummary || []).slice(0, 3).map((row: { category: string; amount: number }, i: number) => {
+                const disp = getCategoryDisplay(row.category);
+                const Icon = disp.Icon;
+                return (
+                  <div key={`${row.category}-${i}`} className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg">
+                    <div className={`w-12 h-12 bg-gradient-to-br ${disp.gradient} rounded-2xl flex items-center justify-center shadow-md shadow-pink-200`}>
+                      <Icon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-slate-900">${Number(row.amount).toLocaleString()}</div>
+                      <div className="text-sm text-slate-600">{disp.label}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {(!donorDataState?.impactSummary || donorDataState.impactSummary.length === 0) && (
+                <div className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg md:col-span-2">
+                  <div className="w-12 h-12 bg-gradient-to-br from-slate-200 to-slate-300 rounded-2xl flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-slate-900">$0</div>
+                    <div className="text-sm text-slate-600">No spending categories yet — impact appears when organizations log expenses.</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-bold text-slate-900">$500</div>
-                  <div className="text-sm text-slate-600">School Supplies</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg">
-                <div className="w-12 h-12 bg-gradient-to-br from-rose-400 to-orange-400 rounded-2xl flex items-center justify-center shadow-md shadow-rose-200">
-                  <Utensils className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">$450</div>
-                  <div className="text-sm text-slate-600">Food Programs</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg">
-                <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl flex items-center justify-center shadow-md shadow-pink-200">
-                  <Stethoscope className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <div className="font-bold text-slate-900">$300</div>
-                  <div className="text-sm text-slate-600">Medical Supplies</div>
-                </div>
-              </div>
+              )}
               <div className="flex items-center gap-3 bg-white rounded-2xl p-4 shadow-lg">
                 <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-amber-400 rounded-2xl flex items-center justify-center shadow-md shadow-orange-200">
                   <Heart className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <div className="font-bold text-slate-900">100%</div>
+                  <div className="font-bold text-slate-900">{donorDataState?.fundsAllocatedPercent ?? 0}%</div>
                   <div className="text-sm text-slate-600">Funds Allocated</div>
                 </div>
               </div>
@@ -454,9 +385,9 @@ export function DonorDashboard() {
                 <CardHeader className="bg-gradient-to-r from-pink-50 via-rose-50 to-orange-50 border-b border-pink-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <CardTitle className="text-lg text-slate-900">{donation.organization}</CardTitle>
+                      <CardTitle className="text-lg text-slate-900">{donation.organization || "Organization"}</CardTitle>
                       <CardDescription className="mt-1 text-slate-600">
-                        Donated on {new Date(donation.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        Donated on {formatDonationDate(donation)}
                       </CardDescription>
                     </div>
                     <motion.div
@@ -498,16 +429,21 @@ export function DonorDashboard() {
                   <div className="space-y-4">
                     <h4 className="font-semibold text-slate-900">Where Your Money Went:</h4>
                       {(donation.allocations || []).map((allocation: any, idx: number) => {
-                      // allocation from backend: { expenseId, orgId, amount, expenseDescription, expenseCreatedAt }
-                      const Icon = BookOpen;
+                      // allocation from backend: { expenseId, orgId, amount, expenseDescription, expenseCreatedAt, expenseCategory }
+                      const label = allocation.expenseCategory || allocation.expenseDescription || "Expense";
+                      const disp = getCategoryDisplay(label);
+                      const Icon = disp.Icon;
                       const alloc = {
-                        category: allocation.expenseDescription || 'Expense',
+                        category: disp.label,
                         amount: allocation.amount,
                         icon: Icon,
-                        color: 'bg-gradient-to-br from-pink-400 to-rose-400',
-                        description: allocation.expenseDescription || '',
-                        date: allocation.expenseCreatedAt ? new Date(allocation.expenseCreatedAt).toISOString() : new Date().toISOString(),
-                        receipt: allocation.receipt || '',
+                        color: `bg-gradient-to-br ${disp.gradient}`,
+                        description: allocation.expenseDescription || "",
+                        date: (() => {
+                          const ms = parseTimestampMs(allocation.expenseCreatedAt);
+                          return Number.isNaN(ms) ? new Date().toISOString() : new Date(ms).toISOString();
+                        })(),
+                        receipt: allocation.receipt || "",
                         locations: allocation.locations || [],
                       };
                       return (

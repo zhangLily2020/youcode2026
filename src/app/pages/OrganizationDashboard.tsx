@@ -1,65 +1,17 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { LogOut, DollarSign, Upload, TrendingUp, Users, Plus, X, Heart, Sparkles, Check } from "lucide-react";
+import { LogOut, DollarSign, Upload, TrendingUp, Users, Plus, Heart, Sparkles, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../components/ui/dialog";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { motion } from "motion/react";
+import { EXPENSE_CATEGORY_OPTIONS, OTHER_VALUE, resolveExpenseCategory, getCategoryDisplay } from "../constants/expenseCategories";
 
-// Mock organization data
-const organizationData = {
-  name: "Hope Foundation",
-  totalReceived: 15750,
-  totalSpent: 12500,
-  totalDonors: 43,
-  donors: [
-    { id: 1, name: "John Doe", email: "john@example.com", totalDonated: 1250, lastDonation: "2026-02-10", thanked: false },
-    { id: 2, name: "Jane Smith", email: "jane@example.com", totalDonated: 2000, lastDonation: "2026-03-15", thanked: true },
-    { id: 3, name: "Bob Johnson", email: "bob@example.com", totalDonated: 750, lastDonation: "2026-03-20", thanked: false },
-    { id: 4, name: "Alice Williams", email: "alice@example.com", totalDonated: 1500, lastDonation: "2026-04-01", thanked: false },
-  ],
-  expenditures: [
-    {
-      id: 1,
-      category: "School Supplies",
-      amount: 500,
-      description: "Textbooks and stationery for 50 students",
-      date: "2026-01-20",
-      receipt: "receipt-001.pdf",
-      status: "allocated",
-    },
-    {
-      id: 2,
-      category: "Food Program",
-      amount: 450,
-      description: "Daily meals for 30 children - January batch",
-      date: "2026-01-25",
-      receipt: "receipt-002.pdf",
-      status: "allocated",
-    },
-    {
-      id: 3,
-      category: "Medical Supplies",
-      amount: 300,
-      description: "First aid kits and medications",
-      date: "2026-02-15",
-      receipt: "receipt-003.pdf",
-      status: "allocated",
-    },
-    {
-      id: 4,
-      category: "Building Maintenance",
-      amount: 800,
-      description: "Roof repair and painting",
-      date: "2026-03-01",
-      receipt: "receipt-004.pdf",
-      status: "allocated",
-    },
-  ],
-};
+const API_ORIGIN = "http://localhost:3000";
 
 export function OrganizationDashboard() {
   const navigate = useNavigate();
@@ -67,7 +19,21 @@ export function OrganizationDashboard() {
   const [donors, setDonors] = useState<any[]>([]);
   const [organization, setOrganization] = useState<any | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newExpenditure, setNewExpenditure] = useState<{ category: string; amount: string; description: string; date: string; receiptFile?: File | null }>({ category: "", amount: "", description: "", date: "", receiptFile: null });
+  const [newExpenditure, setNewExpenditure] = useState<{
+    categoryKey: string;
+    otherCategory: string;
+    amount: string;
+    description: string;
+    date: string;
+    receiptFile: File | null;
+  }>({
+    categoryKey: EXPENSE_CATEGORY_OPTIONS[0]?.value ?? "",
+    otherCategory: "",
+    amount: "",
+    description: "",
+    date: new Date().toISOString().slice(0, 10),
+    receiptFile: null,
+  });
 
   useEffect(() => {
     const raw = localStorage.getItem('tracer_user');
@@ -85,12 +51,12 @@ export function OrganizationDashboard() {
       setOrganization(org);
       (async () => {
         try {
-          const resp = await fetch(`http://localhost:3000/api/dashboard/org/${org.id}`);
+          const resp = await fetch(`${API_ORIGIN}/api/dashboard/org/${org.id}`);
           if (resp.ok) {
             const json = await resp.json();
-            setOrganization(json.organization || org);
+            setOrganization({ ...org, ...(json.organization || {}) });
             setExpenditures(json.expenditures || []);
-            setDonors(json.donors || json.organization?.donors || []);
+            setDonors(json.donors || []);
           }
         } catch (err) {
           console.error('Failed to fetch org dashboard', err);
@@ -106,25 +72,26 @@ export function OrganizationDashboard() {
     window.location.assign('/');
   };
 
-  const handleToggleThanked = (donorId: number) => {
+  const handleToggleThanked = (donorId: string | number) => {
     setDonors(donors.map(donor =>
-      donor.id === donorId ? { ...donor, thanked: !donor.thanked } : donor
+      String(donor.id) === String(donorId) ? { ...donor, thanked: !donor.thanked } : donor
     ));
   };
 
   const handleAddExpenditure = async () => {
     if (!organization) return;
-    if (newExpenditure.category && newExpenditure.amount && newExpenditure.description && newExpenditure.date) {
+    const category = resolveExpenseCategory(newExpenditure.categoryKey, newExpenditure.otherCategory);
+    if (newExpenditure.amount && newExpenditure.description && newExpenditure.date) {
       try {
         const form = new FormData();
         form.append('orgId', organization.id);
-        form.append('category', newExpenditure.category);
+        form.append('category', category);
         form.append('description', newExpenditure.description);
         form.append('amount', String(Number(newExpenditure.amount)));
         form.append('date', newExpenditure.date);
         if (newExpenditure.receiptFile) form.append('receipt', newExpenditure.receiptFile);
 
-        const resp = await fetch('http://localhost:3000/api/expenses', {
+        const resp = await fetch(`${API_ORIGIN}/api/expenses`, {
           method: 'POST',
           body: form,
         });
@@ -133,15 +100,21 @@ export function OrganizationDashboard() {
           alert(err.error || 'Failed to add expenditure');
           return;
         }
-        const json = await resp.json();
-        // refresh dashboard
-        const dash = await fetch(`http://localhost:3000/api/dashboard/org/${organization.id}`);
+        const dash = await fetch(`${API_ORIGIN}/api/dashboard/org/${organization.id}`);
         if (dash.ok) {
           const j = await dash.json();
+          setOrganization((prev: any) => ({ ...prev, ...(j.organization || {}) }));
           setExpenditures(j.expenditures || []);
           setDonors(j.donors || []);
         }
-        setNewExpenditure({ category: "", amount: "", description: "", date: "", receiptFile: null });
+        setNewExpenditure({
+          categoryKey: EXPENSE_CATEGORY_OPTIONS[0]?.value ?? "",
+          otherCategory: "",
+          amount: "",
+          description: "",
+          date: new Date().toISOString().slice(0, 10),
+          receiptFile: null,
+        });
         setIsDialogOpen(false);
       } catch (err) {
         console.error('Add expenditure failed', err);
@@ -150,8 +123,18 @@ export function OrganizationDashboard() {
     }
   };
 
-  const totalSpent = expenditures.reduce((sum, exp) => sum + Number(exp.amount || 0), 0);
-  const availableFunds = (organization?.totalReceived || 0) - totalSpent;
+  const totalReceived = Number(organization?.totalReceived ?? 0);
+  const totalSpent = Number(organization?.totalSpent ?? 0);
+  const availableFunds = Number(organization?.availableFunds ?? 0);
+  const totalDonors = Number(organization?.totalDonors ?? 0);
+  const pctRemaining =
+    totalReceived > 0 ? Math.min(100, Math.max(0, (availableFunds / totalReceived) * 100)).toFixed(1) : "0.0";
+
+  function receiptHref(receipt: string | null | undefined) {
+    if (!receipt) return null;
+    if (receipt.startsWith("http")) return receipt;
+    return `${API_ORIGIN}${receipt.startsWith("/") ? "" : "/"}${receipt}`;
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-rose-50 to-orange-50 relative overflow-hidden">
@@ -192,7 +175,7 @@ export function OrganizationDashboard() {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm font-medium text-slate-900">{organizationData.name}</p>
+              <p className="text-sm font-medium text-slate-900">{organization?.name ?? "Organization"}</p>
               <p className="text-xs text-slate-600">Organization Account</p>
             </div>
             <Button onClick={handleLogout} variant="outline" size="sm" className="gap-2 rounded-xl border-pink-200 text-pink-600 hover:bg-pink-50 hover:text-pink-700">
@@ -231,14 +214,48 @@ export function OrganizationDashboard() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category" className="text-slate-700">Category</Label>
-                  <Input
-                    id="category"
-                    placeholder="e.g., School Supplies, Food Program"
-                    value={newExpenditure.category}
-                    onChange={(e) => setNewExpenditure({ ...newExpenditure, category: e.target.value })}
-                    className="rounded-xl border-pink-200 focus:border-pink-400 focus:ring-pink-400"
-                  />
+                  <Label htmlFor="category" className="text-slate-700">Impact category</Label>
+                  <Select
+                    value={newExpenditure.categoryKey}
+                    onValueChange={(value) => setNewExpenditure({ ...newExpenditure, categoryKey: value })}
+                  >
+                    <SelectTrigger id="category" className="rounded-xl border-pink-200 focus:border-pink-400 focus:ring-pink-400 h-auto min-h-12 py-2">
+                      <span className="flex items-center gap-3 text-left">
+                        {(() => {
+                          const opt = EXPENSE_CATEGORY_OPTIONS.find((o) => o.value === newExpenditure.categoryKey);
+                          if (!opt) return <span className="text-slate-500">Choose category</span>;
+                          return (
+                            <>
+                              <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${opt.gradient} shadow-sm`}>
+                                <opt.Icon className="h-4 w-4 text-white" />
+                              </span>
+                              <span>{opt.label}</span>
+                            </>
+                          );
+                        })()}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-80">
+                      {EXPENSE_CATEGORY_OPTIONS.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value} className="py-2">
+                          <span className="flex items-center gap-3">
+                            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${opt.gradient} shadow-sm`}>
+                              <opt.Icon className="h-4 w-4 text-white" />
+                            </span>
+                            <span>{opt.label}</span>
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {newExpenditure.categoryKey === OTHER_VALUE && (
+                    <Input
+                      placeholder="Describe this category (optional)"
+                      value={newExpenditure.otherCategory}
+                      onChange={(e) => setNewExpenditure({ ...newExpenditure, otherCategory: e.target.value })}
+                      className="rounded-xl border-pink-200 focus:border-pink-400 focus:ring-pink-400 mt-2"
+                    />
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="amount" className="text-slate-700">Amount ($)</Label>
@@ -311,9 +328,9 @@ export function OrganizationDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold bg-gradient-to-r from-pink-600 to-rose-600 bg-clip-text text-transparent">
-                ${organizationData.totalReceived.toLocaleString()}
+                ${totalReceived.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-600 mt-1">From {organizationData.totalDonors} donors</p>
+              <p className="text-xs text-slate-600 mt-1">From {totalDonors} donor{totalDonors === 1 ? "" : "s"}</p>
             </CardContent>
           </Card>
 
@@ -328,7 +345,7 @@ export function OrganizationDashboard() {
               <div className="text-3xl font-bold bg-gradient-to-r from-rose-600 to-orange-600 bg-clip-text text-transparent">
                 ${totalSpent.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-600 mt-1">{expenditures.length} expenditures</p>
+              <p className="text-xs text-slate-600 mt-1">{expenditures.length} expenditure{expenditures.length === 1 ? "" : "s"}</p>
             </CardContent>
           </Card>
 
@@ -343,9 +360,7 @@ export function OrganizationDashboard() {
               <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                 ${availableFunds.toLocaleString()}
               </div>
-              <p className="text-xs text-slate-600 mt-1">
-                {((availableFunds / organizationData.totalReceived) * 100).toFixed(1)}% remaining
-              </p>
+              <p className="text-xs text-slate-600 mt-1">{pctRemaining}% remaining in pool</p>
             </CardContent>
           </Card>
 
@@ -358,7 +373,7 @@ export function OrganizationDashboard() {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold bg-gradient-to-r from-amber-600 to-yellow-600 bg-clip-text text-transparent">
-                {organizationData.totalDonors}
+                {totalDonors}
               </div>
               <p className="text-xs text-slate-600 mt-1">Tracking their impact</p>
             </CardContent>
@@ -375,20 +390,26 @@ export function OrganizationDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {expenditures.map((expenditure) => (
+              {expenditures.map((expenditure) => {
+                const cat = getCategoryDisplay(expenditure.category);
+                const CatIcon = cat.Icon;
+                return (
                 <div
-                  key={(expenditure._id || expenditure.id)}
+                  key={String(expenditure._id || expenditure.id)}
                   className="flex items-start gap-4 p-4 bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-2xl border border-pink-100"
                 >
+                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${cat.gradient} shadow-md shadow-pink-200/40`}>
+                    <CatIcon className="h-6 w-6 text-white" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-semibold text-slate-900">{expenditure.category}</h4>
+                        <h4 className="font-semibold text-slate-900">{cat.label}</h4>
                         <p className="text-sm text-slate-600 mt-1">{expenditure.description}</p>
                       </div>
                       <div className="text-right ml-4">
                         <div className="text-xl font-bold text-pink-600">
-                          ${expenditure.amount.toLocaleString()}
+                          ${Number(expenditure.amount || 0).toLocaleString()}
                         </div>
                         <span
                           className={`inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full ${
@@ -421,7 +442,8 @@ export function OrganizationDashboard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </CardContent>
         </Card>
@@ -438,7 +460,7 @@ export function OrganizationDashboard() {
             <div className="space-y-4">
               {donors.map((donor) => (
                 <motion.div
-                  key={donor.id}
+                  key={String(donor.id)}
                   className="flex items-center gap-4 p-4 bg-gradient-to-br from-pink-50/50 to-rose-50/50 rounded-2xl border border-pink-100"
                   whileHover={{ scale: 1.01 }}
                 >
